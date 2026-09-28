@@ -719,10 +719,21 @@ button{font:inherit;color:inherit}
 main{max-width:1120px;margin:0 auto;padding:28px 20px 96px}
 main.full{max-width:none;padding:0}
 
-.hero h1{font-family:var(--serif);font-weight:400;font-size:clamp(42px,8.5vw,74px);line-height:1;letter-spacing:-.025em;margin:4px 0 18px}
-.hero .welcome{color:var(--ink);font-family:var(--serif);font-size:clamp(20px,3.2vw,24px);line-height:1.4;margin:0 0 14px;max-width:30em}
-.hero p{margin:0 0 10px;max-width:36em;color:var(--muted);font-size:17px}
+.hero{position:relative;overflow:hidden;border-radius:14px;background:#0E2A36;color:#fff;min-height:clamp(440px,62vh,600px);
+  display:flex;flex-direction:column;justify-content:flex-end;padding:clamp(22px,4vw,44px)}
+.hero-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:60% 30%}
+.hero::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(to top,rgba(8,20,27,.9) 0%,rgba(8,20,27,.74) 50%,rgba(8,20,27,.4) 80%,rgba(8,20,27,.2) 100%)}
+.hero > :not(.hero-img){position:relative;z-index:2}
+.hero h1{font-family:var(--serif);font-weight:400;font-size:clamp(42px,8.5vw,74px);line-height:1;letter-spacing:-.025em;margin:4px 0 18px;color:#fff}
+.hero .welcome{color:#fff;font-family:var(--serif);font-size:clamp(20px,3.2vw,24px);line-height:1.4;margin:0 0 14px;max-width:30em}
+.hero p{margin:0 0 10px;max-width:36em;color:rgba(255,255,255,.88);font-size:17px}
+.hero p:last-child{margin-bottom:0}
 .countdown{display:inline-block;margin-top:8px;font-size:14px;font-weight:600;color:var(--accent)}
+.hero + .countdown{margin-top:16px}
+.day-photo{margin:24px 0 0;border-radius:14px;overflow:hidden;background:var(--soft);aspect-ratio:16/9}
+.day-photo img{display:block;width:100%;height:100%;object-fit:cover}
+.credits{margin:8px 0 0}
+.credits a{color:inherit}
 .home-grid{display:grid;gap:36px;margin-top:32px}
 .map-wrap{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--sea)}
 .map-wrap svg{display:block;width:100%;height:auto}
@@ -821,6 +832,7 @@ footer.hide{display:none}
   .home-grid{grid-template-columns:1.1fr 1fr;align-items:start}
   .day-grid{grid-template-columns:minmax(320px,400px) 1fr;gap:56px;align-items:start}
   .side{position:sticky;top:150px}
+  .day-photo{aspect-ratio:5/2}
 }
 @media (max-width:520px){ .when{display:none} .map-card{bottom:calc(84px + env(safe-area-inset-bottom,0px))} }
 @media (prefers-reduced-motion:no-preference){
@@ -838,7 +850,17 @@ footer.hide{display:none}
   <nav class="days" id="days" aria-label="Días del viaje"></nav>
 </header>
 <main id="main"></main>
-<footer id="foot">Previsión de eltiempo.es consultada el 28 de septiembre de 2026 a las 21:57; conviene revisarla la víspera. Kilómetros y tiempos, aproximados.</footer>
+<footer id="foot">Previsión de eltiempo.es consultada el 28 de septiembre de 2026 a las 21:57; conviene revisarla la víspera. Kilómetros y tiempos, aproximados.
+  <p class="credits">Fotos de Wikimedia Commons, recortadas y redimensionadas:
+    <a href="https://commons.wikimedia.org/wiki/File:Lama_Monachile.jpg">Calogero77</a> (portada, CC BY-SA 4.0),
+    <a href="https://commons.wikimedia.org/wiki/File:Trani_-_Cattedrale_di_Trani_-_2023-09-26_19-57-27_001.jpg">Matteo Pappadopoli</a> (Trani, CC BY-SA 4.0),
+    <a href="https://commons.wikimedia.org/wiki/File:Matera_-_Sasso_Barisano_at_blue_hour.jpg">Benjamin Smith</a> (Matera, CC BY-SA 4.0),
+    <a href="https://commons.wikimedia.org/wiki/File:Lecce_-_Santa_Croce_-_17.jpg">Benjamin Smith</a> (Lecce, CC BY-SA 4.0),
+    <a href="https://commons.wikimedia.org/wiki/File:Otranto_dal_bastione_dei_Pelasgi.jpg">Freddyballo</a> (Otranto, CC BY-SA 3.0),
+    <a href="https://commons.wikimedia.org/wiki/File:Ostuni,_veduta_05.jpg">Sailko</a> (Ostuni, CC BY 3.0),
+    <a href="https://commons.wikimedia.org/wiki/File:Alberobello_BW_2016-10-16_13-44-51.jpg">Berthold Werner</a> (Alberobello, CC BY-SA 3.0),
+    <a href="https://commons.wikimedia.org/wiki/File:Chiesa_Matrice_nel_cuore_di_Polignano_a_Mare_all%27alba.jpg">Pasquale Alberto Carone</a> (Polignano, CC BY-SA 4.0),
+    <a href="https://commons.wikimedia.org/wiki/File:Bari_-_San_Nicola_1531.jpg">Phyrexian</a> (Bari, CC BY-SA 4.0).</p></footer>
 <button class="fab" id="fab" aria-label="Ver el mapa del viaje"></button>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -962,6 +984,18 @@ const DAYS = [
 DAYS.forEach(d=>d.path = pathOf(d.stops));
 const TRIP_PATH = DAYS.reduce((a,d)=>a.concat(d.path),[]);
 const HOME_LABELS = ["trani","bari","matera","lecce","otranto","ostuni","alberobello","polignano"];
+/* Fotos por día (img/, créditos en CREDITOS.md). Un día sin entrada se muestra sin foto. */
+const PHOTOS = {
+  "3":{src:"img/dia-3.jpg",alt:"La catedral de Trani junto al puerto al atardecer, con el cielo anaranjado reflejado en el mar"},
+  "4":{src:"img/dia-3.jpg",alt:"La catedral de Trani junto al puerto al atardecer, con el cielo anaranjado reflejado en el mar"},
+  "5":{src:"img/dia-5.jpg",alt:"El Sasso Barisano de Matera iluminado en la hora azul, con el campanario de la catedral al fondo"},
+  "6":{src:"img/dia-6.jpg",alt:"Detalle de la fachada barroca de la basílica de Santa Croce en Lecce, con su rosetón y columnas labradas"},
+  "7":{src:"img/dia-7.jpg",alt:"Las murallas de Otranto sobre un mar turquesa, con el casco blanco a la izquierda"},
+  "8":{src:"img/dia-8.jpg",alt:"Ostuni, la Ciudad Blanca, sobre su colina entre olivos"},
+  "9":{src:"img/dia-9.jpg",alt:"Una calle de Alberobello bordeada de trulli blancos con tejados cónicos de piedra"},
+  "10":{src:"img/dia-10.jpg",alt:"El casco antiguo de Polignano a Mare sobre el acantilado, iluminado por la luz del amanecer"},
+  "11":{src:"img/dia-11.jpg",alt:"La fachada románica de la basílica de San Nicolás de Bari iluminada de noche"}
+};
 
 const $ = s => document.querySelector(s);
 const main = $("#main");
@@ -1047,10 +1081,11 @@ function home(){
       <span class="k">${d.km}</span></a></li>`).join("");
   main.className=""; $("#foot").classList.remove("hide");
   main.innerHTML = `<section class="view">
-    <div class="hero"><h1>Roadtrip por la Puglia</h1>
+    <div class="hero"><img class="hero-img" src="img/hero.jpg" alt="Polignano a Mare en la hora azul: el casco antiguo iluminado sobre el acantilado de Lama Monachile y la cala de guijarros a sus pies" width="1600" height="1067" fetchpriority="high">
+      <h1>Roadtrip por la Puglia</h1>
       <p class="welcome">Marta, María: bienvenidas a la familia Martinez Cuberos!! Nos hace muchísima ilusión que nos acompañéis en este viaje. Gracias, por supuesto, a los papis por hacerlo posible.</p>
-      <p>Nos espera una semana apasionante recorriendo esta espectacular región del sur de Italia, así que a disfrutar!</p>
-      ${cd}</div>
+      <p>Nos espera una semana apasionante recorriendo esta espectacular región del sur de Italia, así que a disfrutar!</p></div>
+    ${cd}
     <div class="home-grid">
       <div>
         <div class="map-wrap">${mapSVG({})}</div>
@@ -1096,6 +1131,7 @@ function day(key){
       <h1>${d.title}</h1><p class="sum">${d.sum}</p>
       ${d.pre?`<span class="who">Solo Alejandro y María</span>`:""}
     </header>
+    ${PHOTOS[d.key]?`<figure class="day-photo"><img src="${PHOTOS[d.key].src}" alt="${PHOTOS[d.key].alt}" width="900" height="506" decoding="async"></figure>`:""}
     <div class="day-grid">
       <aside class="side">
         <div class="facts">
