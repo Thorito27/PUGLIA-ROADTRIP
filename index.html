@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>try{const t=localStorage.getItem("tema");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
 <title>Roadtrip por la Puglia · octubre 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -704,6 +705,9 @@ button{font:inherit;color:inherit}
 .when{color:var(--muted);font-size:14px}
 .today{border:1px solid var(--accent);color:var(--accent);background:none;border-radius:999px;padding:4px 14px;font-size:14px;font-weight:600;cursor:pointer}
 .today:hover{background:var(--accent);color:var(--paper)}
+.theme{display:grid;place-items:center;width:30px;height:30px;padding:0;border:1px solid var(--line);border-radius:999px;background:none;color:var(--ink);cursor:pointer}
+.theme:hover{border-color:var(--ink)}
+.theme svg{width:16px;height:16px;display:block}
 .days{max-width:1120px;margin:0 auto;display:flex;gap:2px;overflow-x:auto;padding:8px 14px 0;scrollbar-width:none}
 .days::-webkit-scrollbar{display:none}
 .day-btn{flex:0 0 auto;background:none;border:0;border-bottom:2px solid transparent;padding:6px 10px 9px;cursor:pointer;text-align:center;color:var(--muted);min-width:48px}
@@ -847,7 +851,7 @@ footer.hide{display:none}
 <header class="top" id="top">
   <div class="bar">
     <button class="brand" data-go="inicio">Roadtrip por la Puglia</button>
-    <div class="bar-r"><span class="when">3 – 12 octubre 2026</span><button class="today" id="today">Hoy</button></div>
+    <div class="bar-r"><span class="when">3 – 12 octubre 2026</span><button class="theme" id="theme" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1a7 7 0 0 1 0 14z" fill="currentColor"/></svg></button><button class="today" id="today">Hoy</button></div>
   </div>
   <nav class="days" id="days" aria-label="Días del viaje"></nav>
 </header>
@@ -1056,6 +1060,18 @@ document.addEventListener("click", e=>{
   const b = e.target.closest("[data-day]"); if(b){ e.preventDefault();
     location.hash = location.hash.startsWith("#mapa") ? "mapa/"+b.dataset.day : b.dataset.day; }
 });
+/* modo claro / oscuro: sigue al dispositivo hasta que se elige uno */
+const isDark = () => (document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark";
+const themeLabel = () => { const l = isDark() ? "Cambiar a modo claro" : "Cambiar a modo oscuro"; $("#theme").setAttribute("aria-label", l); $("#theme").title = l; };
+$("#theme").addEventListener("click", ()=>{
+  const t = isDark() ? "light" : "dark";
+  document.documentElement.dataset.theme = t;
+  try{ localStorage.setItem("tema", t); }catch(e){}
+  themeLabel();
+});
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", themeLabel);
+themeLabel();
+
 $("#today").addEventListener("click", ()=>{
   const t = todayKey();
   location.hash = location.hash.startsWith("#mapa") ? "mapa/"+t.key : t.key;
