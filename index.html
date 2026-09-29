@@ -843,6 +843,18 @@ footer.hide{display:none}
 .map-src{position:absolute;right:12px;top:12px;z-index:900;background:rgba(0,0,0,.55);color:#fff;font-size:12px;padding:5px 10px;border-radius:8px;max-width:60%}
 .map-src.light{background:var(--paper);color:var(--muted);border:1px solid var(--line)}
 .leaflet-container{font-family:var(--sans)}
+.locate{display:grid;place-items:center;width:34px;height:34px;padding:0;border:0;border-radius:4px;background:#fff;color:#333;cursor:pointer}
+.locate:hover{background:#f4f4f4}
+.locate svg{width:18px;height:18px}
+.locate.on{background:#39B4E0;color:#fff}
+.locate.busy svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.me{width:18px;height:18px;border-radius:50%;background:#1A73E8;border:3px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25),0 1px 4px rgba(0,0,0,.4);position:relative}
+.me::after{content:"";position:absolute;inset:-9px;border-radius:50%;background:rgba(26,115,232,.35);animation:pulse 2s ease-out infinite;z-index:-1}
+@keyframes pulse{from{transform:scale(.5);opacity:1}to{transform:scale(1.6);opacity:0}}
+@media (prefers-reduced-motion:reduce){ .me::after,.locate.busy svg{animation:none} }
+.map-toast{position:absolute;left:58px;right:12px;top:12px;z-index:950;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.map-toast[hidden]{display:none}
 .stop-label{background:none;border:0;box-shadow:none;color:#fff;font-weight:700;font-size:13px;text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,.9);padding:0}
 .stop-label::before{display:none}
 #bigmap.vector .stop-label{color:var(--ink);text-shadow:0 0 3px var(--land),0 0 3px var(--land)}
@@ -1282,7 +1294,7 @@ function vectorBase(){
 }
 function mapView(key){
   main.className="full"; $("#foot").classList.add("hide");
-  main.innerHTML=`<section class="mapview"><div id="bigmap"></div><div class="map-src" id="msrc">Satélite: Esri, Maxar, Earthstar Geographics</div><div class="map-card" id="mcard"></div></section>`;
+  main.innerHTML=`<section class="mapview"><div id="bigmap"></div><div class="map-src" id="msrc">Satélite: Esri, Maxar, Earthstar Geographics</div><div class="map-card" id="mcard"></div><div class="map-toast" id="mtoast" role="status" hidden></div></section>`;
   fab(true); window.scrollTo({top:0});
   document.documentElement.style.setProperty("--hdr", $("#top").offsetHeight+"px");
   if(!window.L){ $("#bigmap").innerHTML=`<div style="padding:18px">${mapSVG({})}</div>`; card(null); return; }
@@ -1300,7 +1312,48 @@ function mapView(key){
     osrm(d).then(g=>{ d.roadPath=g; line.setLatLngs(g); halo.setLatLngs(g); if(selKey===d.key) selectDay(d.key); }).catch(()=>{});
   });
   fitAll();
+  locateControl();
   if(key) selectDay(key); else { card(null); mark(null); }
+}
+
+/* "¿Dónde estoy?": ubicación en vivo sobre el mapa */
+const ICON_LOC = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>`;
+function toast(msg){
+  const t=$("#mtoast"); if(!t) return;
+  t.textContent=msg; t.hidden=false; clearTimeout(toast.tm); toast.tm=setTimeout(()=>{ t.hidden=true; },4500);
+}
+function locateControl(){
+  let me=null, acc=null, first=true, btn;
+  const setBtn=(st)=>{ btn.className="locate"+(st?" "+st:""); const l=st?"Dejar de mostrar mi ubicación":"Mostrar mi ubicación"; btn.setAttribute("aria-label",l); btn.title=l; btn.setAttribute("aria-pressed",!!st); };
+  const stop=()=>{ LMAP.stopLocate(); if(me){ me.remove(); acc.remove(); me=acc=null; } setBtn(""); };
+  const Ctl=L.Control.extend({ options:{position:"topleft"}, onAdd(){
+    const box=L.DomUtil.create("div","leaflet-bar leaflet-control");
+    btn=L.DomUtil.create("button","locate",box); btn.type="button"; btn.innerHTML=ICON_LOC; setBtn("");
+    L.DomEvent.disableClickPropagation(box);
+    btn.addEventListener("click",()=>{
+      if(btn.classList.contains("on")||btn.classList.contains("busy")) return stop();
+      if(!("geolocation" in navigator)) return toast("Este navegador no permite ver la ubicación.");
+      first=true; setBtn("busy");
+      LMAP.locate({watch:true,enableHighAccuracy:true,maximumAge:10000,timeout:20000});
+    });
+    return box; } });
+  new Ctl().addTo(LMAP);
+  LMAP.on("locationfound",e=>{
+    if(!me){
+      acc=L.circle(e.latlng,{radius:e.accuracy,color:"#1A73E8",weight:1,opacity:.5,fillOpacity:.12,interactive:false}).addTo(LMAP);
+      me=L.marker(e.latlng,{icon:L.divIcon({className:"",html:'<div class="me"></div>',iconSize:[18,18]}),keyboard:false,zIndexOffset:1000,title:"Estás aquí"}).addTo(LMAP);
+    } else { me.setLatLng(e.latlng); acc.setLatLng(e.latlng).setRadius(e.accuracy); }
+    if(first){ first=false; setBtn("on");
+      const trip=L.latLngBounds(TRIP_PATH);
+      if(trip.pad(0.2).contains(e.latlng)) LMAP.setView(e.latlng,Math.max(LMAP.getZoom(),14));
+      else { LMAP.fitBounds(trip.extend(e.latlng),{padding:[30,30]}); toast("Estás fuera de la zona del viaje."); }
+    }
+  });
+  LMAP.on("locationerror",e=>{
+    if(me && e.code!==1) return;  /* fallo puntual con la ubicación ya en pantalla: se mantiene */
+    stop();
+    toast(e.code===1 ? "Sin permiso para ver la ubicación. Actívalo en los ajustes del navegador." : "No se ha podido obtener la ubicación. Inténtalo de nuevo.");
+  });
 }
 
 function route(){
