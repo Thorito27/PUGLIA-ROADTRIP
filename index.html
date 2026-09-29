@@ -766,6 +766,8 @@ h2{font-family:var(--serif);font-weight:500;font-size:24px;letter-spacing:-.01em
 .facts{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line);border-left:1px solid var(--line)}
 .fact{padding:14px 14px 15px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
 .fact .l{font-size:13px;color:var(--muted)}
+.hotel{color:var(--accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.hotel:hover{text-decoration-thickness:2px}
 .fact .v{font-size:22px;font-weight:600;letter-spacing:-.01em;margin-top:2px;line-height:1.2}
 .fact .x{font-size:13.5px;color:var(--muted);margin-top:3px;line-height:1.35}
 .tonight{margin-top:18px;background:var(--accent-soft);border-radius:12px;padding:16px 18px}
@@ -1003,6 +1005,15 @@ const DAYS = [
   ctx:[["Para la despedida", "El aeropuerto de Bari lleva el nombre de Karol Wojtyła, Juan Pablo II."]] }
 ];
 DAYS.forEach(d=>d.path = pathOf(d.stops));
+/* Alojamientos: búsqueda en Google Maps */
+const HOTELS = {
+  "Tenuta San Giovanni":"Tenuta San Giovanni Trani",
+  "Il Palazzotto":"Il Palazzotto Matera",
+  "Palazzo Rollo":"Palazzo Rollo Lecce",
+  "Trulli Orazio":"Trulli Orazio Monopoli",
+  "200 Rooms & Terrace":"200 Rooms & Terrace Bari"
+};
+const hotelLink = n => HOTELS[n] ? `<a class="hotel" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(HOTELS[n])}" target="_blank" rel="noopener">${n}</a>` : n;
 const TRIP_PATH = DAYS.reduce((a,d)=>a.concat(d.path),[]);
 const HOME_LABELS = ["trani","bari","matera","lecce","otranto","ostuni","alberobello","polignano"];
 /* Fotos por día (img/, créditos en CREDITOS.md). Un día sin entrada se muestra sin foto. */
@@ -1198,7 +1209,7 @@ function day(key){
           <div class="fact"><div class="l">Tiempo</div><div class="v">${d.wx.max==null?"—":d.wx.max+"° / "+d.wx.min+"°"}</div><div class="x">${d.wx.sky}</div></div>
           <div class="fact"><div class="l">Sol</div><div class="v">${d.sun[1]}</div><div class="x">Atardecer. Amanece a las ${d.sun[0]}</div></div>
           <div class="fact"><div class="l">Carretera</div><div class="v">${d.km}</div><div class="x">${d.drive}</div></div>
-          <div class="fact"><div class="l">Dormís en</div><div class="v" style="font-size:18px">${d.night}</div><div class="x">${d.nightx||"&nbsp;"}</div></div>
+          <div class="fact"><div class="l">Dormís en</div><div class="v" style="font-size:18px">${hotelLink(d.night)}</div><div class="x">${d.nightx||"&nbsp;"}</div></div>
         </div>
         ${tn}
         <div class="map-wrap">${mapSVG({day:d,title:"Recorrido del "+d.dow.toLowerCase()})}</div>
@@ -1250,7 +1261,7 @@ function card(d){
   if(!d){ c.innerHTML=`<div class="date">Mapa del viaje</div><h3>Todo el recorrido</h3><p>Toca una ruta o un día arriba para verlo.</p>`; return; }
   const tn = d.tonight && d.tonight.main ? `Cena a las ${d.tonight.main.h}.` : (d.tonight&&d.tonight.free ? d.tonight.free.split(".")[0]+"." : "");
   c.innerHTML=`<div class="date">${d.dow} ${d.key} de octubre</div><h3>${d.title}</h3>
-    <p>${d.km}, ${d.drive}. ${d.night!=="En casa"?"Noche en "+d.night+". ":""}${tn}</p>
+    <p>${d.km}, ${d.drive}. ${d.night!=="En casa"?"Noche en "+hotelLink(d.night)+". ":""}${tn}</p>
     <a class="go" href="#${d.key}" data-go="${d.key}">Ver el itinerario del día</a>`;
 }
 function selectDay(key){
