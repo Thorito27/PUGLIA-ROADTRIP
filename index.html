@@ -1043,6 +1043,15 @@ const HOTELS = {
 };
 const gmaps = (label,q) => `<a class="hotel" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}" target="_blank" rel="noopener">${label}</a>`;
 const hotelLink = n => HOTELS[n] ? gmaps(n,HOTELS[n]) : n;
+/* Ciudades del itinerario: su nombre enlaza a Google Maps (la más larga primero: "Polignano a Mare" antes que "Polignano") */
+const CITIES = {
+  "Polignano a Mare":"Polignano a Mare, Italia", "Bari Vecchia":"Bari Vecchia, Bari", "Locorotondo":"Locorotondo, Italia",
+  "Alberobello":"Alberobello, Italia", "Monopoli":"Monopoli, Italia", "Otranto":"Otranto, Italia", "Ostuni":"Ostuni, Italia",
+  "Matera":"Matera, Italia", "Lecce":"Lecce, Italia", "Trani":"Trani, Italia", "Castro":"Castro, Lecce, Italia",
+  "Polignano":"Polignano a Mare, Italia", "Bari":"Bari, Italia"
+};
+const CITY_RE = new RegExp(`(?<![\\p{L}–])(${Object.keys(CITIES).join("|")})(?![\\p{L}])`,"gu");
+const cityLinks = t => t.replace(CITY_RE, m => gmaps(m, CITIES[m]));
 const TRIP_PATH = DAYS.reduce((a,d)=>a.concat(d.path),[]);
 const HOME_LABELS = ["trani","bari","matera","lecce","otranto","ostuni","alberobello","polignano"];
 /* Fotos por día (img/, créditos en CREDITOS.md). Un día sin entrada se muestra sin foto. */
@@ -1209,9 +1218,9 @@ function day(key){
   const i = DAYS.findIndex(d=>d.key===key); const d = DAYS[i];
   if(!d) return home();
   const plan = d.plan.map(p=>{
-    if(!Array.isArray(p)) return `<li class="car"><span class="h">${p.h||""}</span><div><div class="t">En coche: ${p.car}</div></div></li>`;
+    if(!Array.isArray(p)) return `<li class="car"><span class="h">${p.h||""}</span><div><div class="t">En coche: ${cityLinks(p.car)}</div></div></li>`;
     const [h,t,x,hl] = p;
-    return `<li class="${hl?"hl":""}"><span class="h${/^\d/.test(h)?"":" o"}">${h}</span><div><div class="t">${t}</div>${x?`<div class="x">${x}</div>`:""}</div></li>`;
+    return `<li class="${hl?"hl":""}"><span class="h${/^\d/.test(h)?"":" o"}">${h}</span><div><div class="t">${cityLinks(t)}</div>${x?`<div class="x">${x}</div>`:""}</div></li>`;
   }).join("");
   let tn="";
   if(d.tonight){
