@@ -872,6 +872,10 @@ footer.hide{display:none}
 @media (prefers-reduced-motion:no-preference){
   .view{animation:in .35s ease-out}
   @keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .view.from-r{animation:from-r .3s ease-out}
+  .view.from-l{animation:from-l .3s ease-out}
+  @keyframes from-r{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+  @keyframes from-l{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:none}}
 }
 </style>
 </head>
@@ -1367,7 +1371,36 @@ function route(){
     return; }
   if(LMAP){ LMAP.remove(); LMAP=null; }
   (!h||h==="inicio") ? home() : day(h);
+  if(swipeDir){ main.querySelector(".view")?.classList.add(swipeDir); swipeDir=""; }
 }
+/* Deslizar el dedo entre pantallas: izquierda, día siguiente; derecha, día anterior (como .pager) */
+const SEQ = ["inicio", ...DAYS.map(d=>d.key)];
+let swipeDir = "";
+(function swipe(){
+  let x0=0, y0=0, t0=0, on=false, horiz=null, v=null;
+  const still = matchMedia("(prefers-reduced-motion: reduce)");
+  main.addEventListener("touchstart",e=>{
+    on=false; if(main.classList.contains("full") || e.touches.length!==1) return;
+    const t=e.touches[0]; if(t.clientX<24 || t.clientX>innerWidth-24) return;  /* bordes: gesto del sistema */
+    x0=t.clientX; y0=t.clientY; t0=Date.now(); on=true; horiz=null; v=main.querySelector(".view");
+  },{passive:true});
+  main.addEventListener("touchmove",e=>{
+    if(!on) return; const t=e.touches[0], dx=t.clientX-x0, dy=t.clientY-y0;
+    if(horiz===null && Math.abs(dx)+Math.abs(dy)>10) horiz = Math.abs(dx) > Math.abs(dy)*1.5;
+    if(horiz && v && !still.matches){ v.style.transition="none"; v.style.transform=`translateX(${dx*0.35}px)`; v.style.opacity=String(1-Math.min(Math.abs(dx)/600,.4)); }
+  },{passive:true});
+  const end=e=>{
+    if(!on) return; on=false;
+    const t=e.changedTouches[0], dx=t.clientX-x0, dy=t.clientY-y0, fast=Date.now()-t0<700;
+    const i=SEQ.indexOf(lastView), to = dx<0 ? SEQ[i+1] : SEQ[i-1];
+    const go = horiz && Math.abs(dx)>70 && Math.abs(dx)>Math.abs(dy)*1.5 && (fast||Math.abs(dx)>innerWidth/3) && i>=0 && to;
+    if(v){ v.style.transition="transform .2s ease-out, opacity .2s ease-out"; v.style.transform=""; v.style.opacity=""; }
+    if(go){ swipeDir = dx<0 ? "from-r" : "from-l"; location.hash = to; }
+  };
+  main.addEventListener("touchend",end,{passive:true});
+  main.addEventListener("touchcancel",()=>{ on=false; if(v){ v.style.transform=""; v.style.opacity=""; } },{passive:true});
+})();
+
 nav(); window.addEventListener("hashchange",route); window.addEventListener("resize",()=>document.documentElement.style.setProperty("--hdr",$("#top").offsetHeight+"px")); route();
 </script>
 </body>
