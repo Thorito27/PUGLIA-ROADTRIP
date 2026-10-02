@@ -694,7 +694,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 120px)}
 *,*::before,*::after{box-sizing:inherit}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+body{overflow-x:clip;margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
 button{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
 
@@ -856,6 +856,18 @@ footer.hide{display:none}
 @media (prefers-reduced-motion:reduce){ .me::after,.locate.busy svg{animation:none} }
 .map-toast{position:absolute;left:58px;right:12px;top:12px;z-index:950;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.2)}
 .map-toast[hidden]{display:none}
+/* Gesto entre días: la página se convierte en una lámina y una píldora de cristal anuncia el destino */
+.view.dragging{will-change:transform;background:var(--paper);transform-origin:50% 40%;border-radius:22px;box-shadow:0 18px 50px rgba(8,20,27,.18)}
+.swipe-pill{position:fixed;top:50%;z-index:1200;display:flex;flex-direction:column;gap:1px;padding:10px 16px;border-radius:999px;pointer-events:none;
+  font-size:14px;font-weight:600;color:var(--ink);opacity:0;transition:background .2s,color .2s,border-color .2s;
+  background:color-mix(in srgb,var(--paper) 55%,transparent);border:1px solid color-mix(in srgb,#fff 45%,transparent);
+  -webkit-backdrop-filter:blur(18px) saturate(180%);backdrop-filter:blur(18px) saturate(180%);
+  box-shadow:0 8px 30px rgba(8,20,27,.18),inset 0 1px 0 rgba(255,255,255,.5)}
+.swipe-pill small{font-size:11px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.swipe-pill.r{right:14px;text-align:right}
+.swipe-pill.l{left:14px}
+.swipe-pill.armed{background:color-mix(in srgb,var(--accent) 78%,transparent);color:var(--paper);border-color:color-mix(in srgb,#fff 30%,transparent)}
+.swipe-pill.armed small{color:color-mix(in srgb,var(--paper) 80%,transparent)}
 .stop-label{background:none;border:0;box-shadow:none;color:#fff;font-weight:700;font-size:13px;text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,.9);padding:0}
 .stop-label::before{display:none}
 #bigmap.vector .stop-label{color:var(--ink);text-shadow:0 0 3px var(--land),0 0 3px var(--land)}
@@ -872,10 +884,10 @@ footer.hide{display:none}
 @media (prefers-reduced-motion:no-preference){
   .view{animation:in .35s ease-out}
   @keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-  .view.from-r{animation:from-r .3s ease-out}
-  .view.from-l{animation:from-l .3s ease-out}
-  @keyframes from-r{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
-  @keyframes from-l{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:none}}
+  .view.from-r{animation:from-r .48s cubic-bezier(.22,1,.36,1)}
+  .view.from-l{animation:from-l .48s cubic-bezier(.22,1,.36,1)}
+  @keyframes from-r{from{opacity:0;transform:translateX(28%) scale(.94);filter:blur(6px)}60%{filter:blur(0)}to{opacity:1;transform:none;filter:none}}
+  @keyframes from-l{from{opacity:0;transform:translateX(-28%) scale(.94);filter:blur(6px)}60%{filter:blur(0)}to{opacity:1;transform:none;filter:none}}
 }
 </style>
 </head>
@@ -1370,35 +1382,69 @@ function route(){
     if(LMAP && $("#bigmap")){ k?selectDay(k):selectDay(null); } else mapView(k);
     return; }
   if(LMAP){ LMAP.remove(); LMAP=null; }
+  const from=SEQ.indexOf(lastView), was=main.classList.contains("full");
   (!h||h==="inicio") ? home() : day(h);
-  if(swipeDir){ main.querySelector(".view")?.classList.add(swipeDir); swipeDir=""; }
+  const to=SEQ.indexOf(lastView);
+  if(route.done && !was && from>=0 && to>=0 && from!==to && !REDUCED.matches) main.querySelector(".view")?.classList.add(to>from?"from-r":"from-l");
+  route.done=true;
 }
-/* Deslizar el dedo entre pantallas: izquierda, día siguiente; derecha, día anterior (como .pager) */
+/* Deslizar el dedo entre pantallas: izquierda, día siguiente; derecha, día anterior (como .pager).
+   La página sigue al dedo como una lámina; una píldora de cristal indica a qué día se va. */
 const SEQ = ["inicio", ...DAYS.map(d=>d.key)];
-let swipeDir = "";
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)");
+const seqLabel = k => { if(k==="inicio") return "Inicio"; const d=DAYS.find(x=>x.key===k); return d.dow+" "+d.key; };
 (function swipe(){
-  let x0=0, y0=0, t0=0, on=false, horiz=null, v=null;
-  const still = matchMedia("(prefers-reduced-motion: reduce)");
+  let x0=0, y0=0, t0=0, on=false, horiz=null, v=null, pill=null, to=null, W=1, dx=0;
+  const EASE="cubic-bezier(.22,1,.36,1)", SPRING="cubic-bezier(.34,1.4,.64,1)";
+  const reset=()=>{ if(pill){ pill.remove(); pill=null; } };
   main.addEventListener("touchstart",e=>{
     on=false; if(main.classList.contains("full") || e.touches.length!==1) return;
     const t=e.touches[0]; if(t.clientX<24 || t.clientX>innerWidth-24) return;  /* bordes: gesto del sistema */
-    x0=t.clientX; y0=t.clientY; t0=Date.now(); on=true; horiz=null; v=main.querySelector(".view");
+    x0=t.clientX; y0=t.clientY; t0=Date.now(); on=true; horiz=null; dx=0; W=innerWidth; v=main.querySelector(".view");
   },{passive:true});
   main.addEventListener("touchmove",e=>{
-    if(!on) return; const t=e.touches[0], dx=t.clientX-x0, dy=t.clientY-y0;
-    if(horiz===null && Math.abs(dx)+Math.abs(dy)>10) horiz = Math.abs(dx) > Math.abs(dy)*1.5;
-    if(horiz && v && !still.matches){ v.style.transition="none"; v.style.transform=`translateX(${dx*0.35}px)`; v.style.opacity=String(1-Math.min(Math.abs(dx)/600,.4)); }
+    if(!on) return; const t=e.touches[0]; dx=t.clientX-x0; const dy=t.clientY-y0;
+    if(horiz===null && Math.abs(dx)+Math.abs(dy)>10){
+      horiz = Math.abs(dx) > Math.abs(dy)*1.5;
+      if(horiz && v && !REDUCED.matches){ v.classList.add("dragging"); v.style.transition="none"; }
+    }
+    if(!horiz || !v || REDUCED.matches) return;
+    const i=SEQ.indexOf(lastView); to = dx<0 ? SEQ[i+1] : SEQ[i-1];
+    const x = to ? dx : dx*0.22;                        /* sin destino: resistencia elástica */
+    const p = Math.min(Math.abs(x)/W,1);
+    v.style.transform=`translateX(${x}px) scale(${1-p*0.08})`;
+    v.style.opacity=String(1-p*0.35);
+    if(to){
+      const side = dx<0 ? "r" : "l";
+      if(!pill || !pill.classList.contains(side)){ reset(); pill=document.createElement("div"); pill.className="swipe-pill "+side;
+        pill.innerHTML=`<small>${dx<0?(lastView==="inicio"?"Empezar":"Día siguiente"):(to==="inicio"?"Volver a":"Día anterior")}</small>${seqLabel(to)}`; document.body.appendChild(pill); }
+      const q=Math.min(Math.abs(dx)/(W*0.3),1);
+      pill.style.opacity=String(q);
+      pill.style.transform=`translate(${(side==="r"?1:-1)*(1-q)*40}px,-50%) scale(${0.9+q*0.1})`;
+      pill.classList.toggle("armed", Math.abs(dx)>W*0.25);
+    } else reset();
   },{passive:true});
   const end=e=>{
     if(!on) return; on=false;
-    const t=e.changedTouches[0], dx=t.clientX-x0, dy=t.clientY-y0, fast=Date.now()-t0<700;
-    const i=SEQ.indexOf(lastView), to = dx<0 ? SEQ[i+1] : SEQ[i-1];
-    const go = horiz && Math.abs(dx)>70 && Math.abs(dx)>Math.abs(dy)*1.5 && (fast||Math.abs(dx)>innerWidth/3) && i>=0 && to;
-    if(v){ v.style.transition="transform .2s ease-out, opacity .2s ease-out"; v.style.transform=""; v.style.opacity=""; }
-    if(go){ swipeDir = dx<0 ? "from-r" : "from-l"; location.hash = to; }
+    const t=e.changedTouches[0]; dx=t.clientX-x0; const dy=t.clientY-y0, ms=Date.now()-t0;
+    const i=SEQ.indexOf(lastView); to = dx<0 ? SEQ[i+1] : SEQ[i-1];
+    const flick = ms<300 && Math.abs(dx)>50, far = Math.abs(dx)>W*0.25;
+    const go = horiz && Math.abs(dx)>Math.abs(dy)*1.5 && (flick||far) && i>=0 && to;
+    if(REDUCED.matches || !v || !horiz){ reset(); if(go) location.hash=to; return; }
+    if(go){
+      v.style.transition=`transform .26s ${EASE}, opacity .26s ${EASE}`;
+      v.style.transform=`translateX(${dx<0?-W:W}px) scale(.9)`; v.style.opacity="0";
+      if(pill){ pill.style.transition="opacity .26s"; pill.style.opacity="0"; }
+      setTimeout(()=>{ reset(); location.hash=to; },230);
+    } else {
+      v.style.transition=`transform .45s ${SPRING}, opacity .3s ${EASE}`;
+      v.style.transform=""; v.style.opacity="";
+      if(pill){ pill.style.transition="opacity .2s, transform .3s"; pill.style.opacity="0"; }
+      setTimeout(()=>{ reset(); v && v.classList.remove("dragging"); },320);
+    }
   };
   main.addEventListener("touchend",end,{passive:true});
-  main.addEventListener("touchcancel",()=>{ on=false; if(v){ v.style.transform=""; v.style.opacity=""; } },{passive:true});
+  main.addEventListener("touchcancel",()=>{ on=false; reset(); if(v){ v.classList.remove("dragging"); v.style.transform=""; v.style.opacity=""; } },{passive:true});
 })();
 
 nav(); window.addEventListener("hashchange",route); window.addEventListener("resize",()=>document.documentElement.style.setProperty("--hdr",$("#top").offsetHeight+"px")); route();
